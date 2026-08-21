@@ -8,9 +8,9 @@ import { mqttConnect, mqttSubscribe, mqttPublish, mqttParse, mqttPingReq } from 
 import { Identity } from "./identity.js";
 
 const BROKER = "wss://broker.emqx.io:8084/mqtt";
-const LOBBY = "rfccypher/roulette/lobby";
+export const LOBBY = "rfccypher/roulette/lobby";
 
-function makeBus(topic, clientId, useLocal) {
+export function makeBus(topic, clientId, useLocal) {
   const handlers = [];
   if (useLocal) {
     const ch = new BroadcastChannel("rlt-" + topic);
@@ -70,8 +70,20 @@ export class Matchmaker {
     if (this.state !== "searching") return;
     const nonce = Math.random().toString(36).slice(2);
     const sig = await this.id.sign(this.id.id + nonce);
+    const p = this.id.profile ? this.id.profile() : {};
     this.lobby.send({ t: "hello", from: this.id.id, handle: this.id.handle,
-                      pubkey: this.id.pubB64(), nonce, sig, ts: Date.now() });
+                      pubkey: this.id.pubB64(), nonce, sig, ts: Date.now(),
+                      gender: p.gender || "", prefer: p.prefer || "everyone",
+                      interests: p.interests || [], country: p.country || "" });
+  }
+
+  // mutual compatibility: I accept their gender AND they accept mine
+  _eligible(p) {
+    const myG = this.id.getGender ? this.id.getGender() : "";
+    const myP = this.id.getPrefer ? this.id.getPrefer() : "everyone";
+    const iWant = myP === "everyone" || (!!p.gender && myP === p.gender);
+    const theyWant = (p.prefer || "everyone") === "everyone" || (!!myG && p.prefer === myG);
+    return iWant && theyWant;
   }
 
   async _onLobby(m) {
@@ -80,21 +92,25 @@ export class Matchmaker {
     if (m.t === "hello") {
       // verify the sender owns their id
       if (!await Identity.verify(m.pubkey, m.from + m.nonce, m.sig)) return;
-      this.pool.set(m.from, { handle: m.handle, pubkey: m.pubkey, lastSeen: Date.now() });
+      this.pool.set(m.from, { handle: m.handle, pubkey: m.pubkey, lastSeen: Date.now(),
+                              gender: m.gender || "", prefer: m.prefer || "everyone",
+                              interests: m.interests || [], country: m.country || "" });
       this.onState(this.state, this.pool);
     } else if (m.t === "bye") {
       this.pool.delete(m.from);
     } else if (m.t === "match" && m.to === this.id.id) {
-      // someone claims us
+      // someone claims us — enforce our filter too (two-sided)
+      const claimer = this.pool.get(m.from);
+      if (claimer && !this._eligible(claimer)) { this.lobby.send({ t: "busy", from: this.id.id, to: m.from }); return; }
       if (this.state === "searching" && !this.reservedWith) {
         this.reservedWith = m.from;
         this.lobby.send({ t: "accept", from: this.id.id, to: m.from, room: m.room });
-        this._enterRoom(m.room, m.from, this.pool.get(m.from)?.handle || m.from);
+        this._enterRoom(m.room, m.from, this.pool.get(m.from));
       } else {
         this.lobby.send({ t: "busy", from: this.id.id, to: m.from });
       }
     } else if (m.t === "accept" && m.to === this.id.id) {
-      if (this.reservedWith === m.from) this._enterRoom(m.room, m.from, this.pool.get(m.from)?.handle || m.from);
+      if (this.reservedWith === m.from) this._enterRoom(m.room, m.from, this.pool.get(m.from));
     } else if (m.t === "busy" && m.to === this.id.id) {
       if (this.reservedWith === m.from) { this.reservedWith = null; }  // retry next tick
     }
@@ -105,10 +121,16 @@ export class Matchmaker {
     const now = Date.now();
     // prune stale
     for (const [id, v] of this.pool) if (now - v.lastSeen > 6000) this.pool.delete(id);
-    // I only initiate to peers with a larger id (smaller-id initiates → one claimer per pair)
-    const targets = [...this.pool.keys()].filter(id => this.id.id < id).sort();
+    // smaller-id initiates (one claimer per pair); only to mutually-eligible peers;
+    // bias toward shared interests
+    const myInts = new Set(this.id.getInterests ? this.id.getInterests() : []);
+    let targets = [...this.pool.entries()]
+      .filter(([id, p]) => this.id.id < id && this._eligible(p))
+      .map(([id, p]) => ({ id, shared: (p.interests || []).filter(x => myInts.has(x)).length }));
     if (!targets.length) return;
-    const target = targets[Math.floor(Math.random() * targets.length)];
+    const maxShared = Math.max(...targets.map(t => t.shared));
+    if (maxShared > 0) targets = targets.filter(t => t.shared === maxShared);  // prefer best-matched
+    const target = targets[Math.floor(Math.random() * targets.length)].id;
     const room = "r" + Math.random().toString(36).slice(2, 10);
     this.reservedWith = target;
     this.lobby.send({ t: "match", from: this.id.id, to: target, room });
@@ -116,11 +138,13 @@ export class Matchmaker {
     setTimeout(() => { if (this.state === "searching" && this.reservedWith === target) this.reservedWith = null; }, 2500);
   }
 
-  _enterRoom(room, peerId, peerHandle) {
+  _enterRoom(room, peerId, peerEntry) {
     clearInterval(this._helloTimer); clearInterval(this._matchTimer);
     if (this.lobby) { this.lobby.close(); this.lobby = null; }
     this._set("matched");
     const roomBus = makeBus("rfccypher/roulette/room/" + room, this.id.id, this.useLocal);
-    this.onMatch({ room, roomBus, peerId, peerHandle });
+    const p = peerEntry || {};
+    this.onMatch({ room, roomBus, peerId, peerHandle: p.handle || peerId,
+                   peerProfile: { gender: p.gender || "", interests: p.interests || [], country: p.country || "" } });
   }
 }

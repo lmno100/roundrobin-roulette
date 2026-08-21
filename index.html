@@ -99,14 +99,26 @@
   #modeTag{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
   body:not(.live) #modeTag{display:none}
 
-  /* peer label — bottom-center, above the dock, so it never collides with the top bar */
-  .peerlabel{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 108px);transform:translateX(-50%);max-width:calc(100vw - 32px);
-    display:none;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--glass2);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-  body[data-state="connected"] .peerlabel,body[data-state="matched"] .peerlabel{display:inline-flex}
+  /* peer info — bottom-center, above the dock, so it never collides with the top bar */
+  .peerinfo{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 108px);transform:translateX(-50%);max-width:calc(100vw - 24px);
+    display:none;flex-direction:column;align-items:center;gap:7px}
+  body[data-state="connected"] .peerinfo,body[data-state="matched"] .peerinfo{display:flex}
+  .peerlabel{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--glass2);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
   .peerlabel #peerName{font-family:"Space Grotesk";font-weight:600}
   .badge{font-size:10.5px;font-family:ui-monospace,monospace;padding:1px 8px;border-radius:999px}
   .badge.ok{color:var(--green);border:1px solid rgba(40,240,180,.35)}
   .badge.warn{color:var(--amber);border:1px solid rgba(255,200,97,.35)}
+  /* peer meta chips (country / gender / interests, filled by app.js) */
+  #peerMeta{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  #peerMeta:empty{display:none}
+  .pm{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:999px;
+    background:rgba(255,255,255,.06);border:1px solid var(--stroke);color:var(--muted);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .pm.gender{font-weight:600;text-transform:capitalize}
+  .pm.gender.male{color:#8fd0ff;border-color:rgba(65,182,255,.5);background:rgba(65,182,255,.12)}
+  .pm.gender.female{color:#ff9dd0;border-color:rgba(255,61,132,.5);background:rgba(255,61,132,.12)}
+  .pm.gender.other{color:#cdd6f5;border-color:rgba(185,195,225,.45);background:rgba(185,195,225,.1)}
+  .pm.tag{color:var(--muted)}
+  .pm.tag.shared{color:#04121a;background:var(--grad);border-color:transparent;box-shadow:0 0 12px -2px #22e0ff99;font-weight:600}
 
   /* ---------- hero (#ph) ---------- */
   .hero{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:24px calc(18px + var(--safe-l)) calc(24px + var(--safe-b));
@@ -126,6 +138,21 @@
   .ghost{flex:0 0 auto;width:auto;background:transparent;border:1px solid var(--stroke);color:var(--muted);border-radius:12px;padding:0 16px;cursor:pointer;font-weight:600}
   .ghost:hover{color:var(--ink)}
   .poolrow{font-size:13px;color:var(--muted)}.poolrow b{color:var(--cyan);font-family:ui-monospace,monospace}
+  /* live presence count — prominent, alive */
+  .livecount{align-self:center;display:inline-flex;align-items:center;gap:9px;margin:2px 0;padding:8px 16px;border-radius:999px;
+    background:rgba(40,240,180,.08);border:1px solid rgba(40,240,180,.32);font-size:13.5px;color:var(--muted)}
+  .livecount b{font-family:"Space Grotesk";font-weight:700;font-size:19px;color:var(--green);text-shadow:0 0 14px #28f0b466;font-variant-numeric:tabular-nums}
+  .livedot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);animation:livepulse 1.6s ease-in-out infinite}
+  @keyframes livepulse{50%{opacity:.35;transform:scale(.78)}}
+  /* subtle country line under the handle */
+  .country{font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+  .country:empty{display:none}
+  /* two compact selects side by side (gender / preference) */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  /* attention pulse when Start is blocked on a missing gender pick */
+  #genderSel.needpick{animation:needpick 1.5s ease}
+  @keyframes needpick{0%,40%,80%{box-shadow:0 0 0 0 #ff3d8400;border-color:var(--pink)}
+    20%,60%{box-shadow:0 0 0 4px #ff3d8466;border-color:var(--pink)}100%{box-shadow:0 0 0 0 #ff3d8400}}
   .cta{margin-top:6px;padding:16px;border:0;border-radius:14px;cursor:pointer;font-family:"Space Grotesk";font-weight:700;font-size:16px;letter-spacing:.02em;
     color:#04121a;background:var(--grad);background-size:180% 180%;box-shadow:0 12px 40px -12px #22e0ff66,0 0 0 1px #ffffff22 inset;animation:shine 6s ease infinite;transition:transform .12s}
   .cta:hover{transform:translateY(-1px)}.cta:active{transform:translateY(1px)}
@@ -225,8 +252,11 @@
     <button class="iconbtn danger" id="stopBtn" hidden aria-label="end">✕ end</button>
   </header>
 
-  <!-- peer label -->
-  <div class="peerlabel"><span id="peerName">—</span><span id="peerBadge" class="badge"></span></div>
+  <!-- peer label + meta (bottom-center, above the dock) -->
+  <div class="peerinfo">
+    <div class="peerlabel"><span id="peerName">—</span><span id="peerBadge" class="badge"></span></div>
+    <div id="peerMeta"></div>
+  </div>
 
   <!-- friends drawer -->
   <aside id="friendsDrawer" class="drawer">
@@ -239,9 +269,31 @@
     <div class="glass herocard">
       <div class="brand">Round<span>Robin</span></div>
       <p class="tag">any bandwidth · anyone · anywhere</p>
+      <div class="livecount"><span class="livedot"></span><b id="searchingNow">0</b>&nbsp;searching now</div>
       <p class="sub">A serverless peer-to-peer roulette. No server watches — you meet a random stranger, end-to-end encrypted.</p>
       <label>your handle
         <div class="field"><input id="handleIn" maxlength="24" placeholder="pick a handle"><button class="ghost" id="saveHandle">save</button></div>
+        <span class="country" id="myCountry"></span>
+      </label>
+      <div class="two">
+        <label>I am
+          <select id="genderSel">
+            <option value="">I am…</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>chat with
+          <select id="preferSel">
+            <option value="everyone">Everyone</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </label>
+      </div>
+      <label>interests
+        <div class="field"><input id="interestsIn" maxlength="120" placeholder="interests, comma-separated"><button class="ghost" id="saveInterests">save</button></div>
       </label>
       <label>connection
         <select id="modeSel">

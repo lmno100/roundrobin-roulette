@@ -7,7 +7,13 @@
 const LS = {
   priv: "rlt_priv", pub: "rlt_pub", handle: "rlt_handle",
   bans: "rlt_bans", friends: "rlt_friends",
+  gender: "rlt_gender", prefer: "rlt_prefer", interests: "rlt_interests", country: "rlt_country",
 };
+
+export function flagEmoji(code) {
+  if (!code || code.length !== 2) return "🏳️";
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
 
 const HANDLES_A = ["swift","calm","lucky","bright","brave","quiet","wild","noble","keen","warm","odd","true","neon","lone","fair"];
 const HANDLES_B = ["otter","falcon","koala","raven","tiger","gecko","moth","bison","lynx","crane","fox","wolf","seal","hare","owl"];
@@ -76,6 +82,34 @@ export class Identity {
   bans() { return new Set(JSON.parse(localStorage.getItem(LS.bans) || "[]")); }
   ban(id) { const s = this.bans(); s.add(id); localStorage.setItem(LS.bans, JSON.stringify([...s])); }
   isBanned(id) { return this.bans().has(id); }
+
+  // ---- profile (self-declared): gender, who they'll chat with, interests, country
+  getGender() { return localStorage.getItem(LS.gender) || ""; }              // male|female|other|""
+  setGender(g) { localStorage.setItem(LS.gender, g); this.gender = g; }
+  getPrefer() { return localStorage.getItem(LS.prefer) || "everyone"; }      // everyone|male|female
+  setPrefer(p) { localStorage.setItem(LS.prefer, p); this.prefer = p; }
+  getInterests() { try { return JSON.parse(localStorage.getItem(LS.interests) || "[]"); } catch { return []; } }
+  setInterests(arr) {
+    const clean = [...new Set(arr.map(s => s.trim().toLowerCase()).filter(Boolean))].slice(0, 8);
+    localStorage.setItem(LS.interests, JSON.stringify(clean)); this.interests = clean; return clean;
+  }
+  async detectCountry() {
+    const cached = (() => { try { return JSON.parse(localStorage.getItem(LS.country) || "null"); } catch { return null; } })();
+    if (cached && Date.now() - cached.at < 86400000) { this.countryCache = cached; return cached; }
+    let c = { code: (navigator.language.split("-")[1] || "").toUpperCase(), name: "", at: Date.now() };
+    try {
+      const r = await fetch("https://ipwho.is/?fields=country_code,country");
+      const j = await r.json();
+      if (j && j.country_code) c = { code: j.country_code, name: j.country || "", at: Date.now() };
+    } catch {}
+    localStorage.setItem(LS.country, JSON.stringify(c));
+    this.countryCache = c;
+    return c;
+  }
+  profile() {
+    return { gender: this.getGender(), prefer: this.getPrefer(),
+             interests: this.getInterests(), country: (this.countryCache || {}).code || "" };
+  }
 
   // friends list  [{id, handle, at}]
   friends() { return JSON.parse(localStorage.getItem(LS.friends) || "[]"); }

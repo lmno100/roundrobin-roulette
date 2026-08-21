@@ -3,8 +3,8 @@
 // fallback and E2E sframe. Controls: NEXT / CONNECT / BAN / STOP.
 import { roleFor } from "./signaling.js";
 import { deriveKey, SFrame, installSenderTransform, installReceiverTransform } from "./sframe.js";
-import { Identity } from "./identity.js";
-import { Matchmaker } from "./matchmaker.js";
+import { Identity, flagEmoji } from "./identity.js";
+import { Matchmaker, makeBus, LOBBY } from "./matchmaker.js";
 
 const RTC = { encodedInsertableStreams: true, iceServers: [
   { urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] };
@@ -28,9 +28,33 @@ async function boot() {
   $("me").textContent = ident.handle;
   $("meId").textContent = ident.id.slice(0, 8);
   $("handleIn").value = ident.handle;
+  // profile controls from storage
+  if ($("genderSel")) $("genderSel").value = ident.getGender() || "";
+  if ($("preferSel")) $("preferSel").value = ident.getPrefer();
+  if ($("interestsIn")) $("interestsIn").value = ident.getInterests().join(", ");
   sframeKey = await deriveKey("roulette-global-v1");   // shared room key; per-pair rekey is v2
   renderFriends();
   setStatus(useLocal ? "ready (local test mode)" : "ready", "");
+  startPresence();                                     // live "searching now" count
+  ident.detectCountry().then(c => { if ($("myCountry")) $("myCountry").textContent = `${flagEmoji(c.code)} ${c.name || c.code || ""}`; });
+}
+
+// passive lobby listener → live count of people searching (no HELLO of our own)
+let presenceBus = null;
+function startPresence() {
+  const seen = new Map();
+  presenceBus = makeBus(LOBBY, "watch-" + (ident?.id || "x"), useLocal);
+  presenceBus.ready.then(() => presenceBus.on(m => {
+    if (m && m.t === "hello") seen.set(m.from, Date.now());
+    if (m && m.t === "bye") seen.delete(m.from);
+  }));
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, t] of seen) if (now - t > 7000) seen.delete(k);
+    const n = seen.size + (running ? 1 : 0);
+    if ($("searchingNow")) $("searchingNow").textContent = n;
+    if ($("poolCount")) $("poolCount").textContent = n;
+  }, 1500);
 }
 
 function gumTimeout(constraints, ms) {
@@ -64,9 +88,10 @@ function onState(state, pool) {
   if (state === "searching") $("poolCount").textContent = pool.size;
 }
 
-async function onMatch({ roomBus, peerId, peerHandle }) {
+async function onMatch({ roomBus, peerId, peerHandle, peerProfile }) {
   await roomBus.ready;
-  conn = { pc: null, dc: null, bus: roomBus, peerId, peerHandle, verified: false };
+  conn = { pc: null, dc: null, bus: roomBus, peerId, peerHandle, verified: false, profile: peerProfile || {} };
+  renderPeerMeta(conn.profile);
   setStatus(`matched with ${peerHandle}`, "matched");
   roomBus.on(m => onSignal(m));
   ensurePeer();
@@ -151,6 +176,7 @@ function teardown(sendBye = true) {
   if (conn.pc) try { conn.pc.close(); } catch {}
   if (conn.bus) conn.bus.close();
   $("peerVid").srcObject = null; $("peerName").textContent = "—"; $("peerBadge").textContent = "";
+  if ($("peerMeta")) $("peerMeta").innerHTML = "";
   $("chatLog").innerHTML = ""; $("chatBox").hidden = true; $("controls").hidden = true;
   conn = null;
 }
@@ -164,6 +190,17 @@ function stop() { running = false; teardown(true); if (mm) mm.stop();
   (localStream ? localStream.getTracks() : []).forEach(t => t.stop());
   $("meVid").srcObject = null; setStatus("stopped", ""); }
 
+function renderPeerMeta(p) {
+  const el = $("peerMeta"); if (!el) return;
+  const mine = new Set(ident.getInterests());
+  const shared = (p.interests || []).filter(x => mine.has(x));
+  const bits = [];
+  if (p.country) bits.push(`<span class="pm">${flagEmoji(p.country)} ${p.country}</span>`);
+  if (p.gender) bits.push(`<span class="pm gender ${p.gender}">${p.gender}</span>`);
+  for (const t of (p.interests || []).slice(0, 5)) bits.push(`<span class="pm tag${shared.includes(t) ? " shared" : ""}">${t}</span>`);
+  el.innerHTML = bits.join("");
+}
+
 function renderFriends() {
   const f = ident.friends();
   $("friendCount").textContent = f.length;
@@ -173,7 +210,22 @@ function renderFriends() {
 // ---- UI wiring
 window.addEventListener("DOMContentLoaded", async () => {
   await boot();
-  $("startBtn").onclick = () => { $("startBtn").disabled = true; $("stopBtn").hidden = false; start(); };
+  // profile controls
+  if ($("genderSel")) $("genderSel").onchange = e => ident.setGender(e.target.value);
+  if ($("preferSel")) $("preferSel").onchange = e => ident.setPrefer(e.target.value);
+  if ($("saveInterests")) $("saveInterests").onclick = () => {
+    const arr = ident.setInterests(($("interestsIn").value || "").split(","));
+    $("interestsIn").value = arr.join(", ");
+  };
+  $("startBtn").onclick = () => {
+    if (!ident.getGender()) {   // gender must be declared before rolling
+      setStatus("pick your gender first", "searching");
+      const g = $("genderSel"); if (g) { g.focus(); g.classList.add("needpick"); setTimeout(() => g.classList.remove("needpick"), 1500); }
+      return;
+    }
+    if ($("interestsIn") && $("interestsIn").value) ident.setInterests($("interestsIn").value.split(","));
+    $("startBtn").disabled = true; $("stopBtn").hidden = false; start();
+  };
   $("stopBtn").onclick = () => { stop(); $("startBtn").disabled = false; $("stopBtn").hidden = true; };
   $("nextBtn").onclick = () => next();
   $("connectBtn").onclick = () => connectFriend();
