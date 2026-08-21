@@ -24,6 +24,11 @@ async function boot() {
   if (useLocal) {  // two tabs share localStorage → give each a distinct ephemeral id
     ident.id = ident.id.slice(0, 6) + "-" + Math.random().toString(36).slice(2, 6);
     ident.handle = ident.handle + "-" + ident.id.slice(-3);
+    // local-test only: ?local&g=male&p=female&i=music.gaming overrides the profile
+    const sp = new URLSearchParams(location.search);
+    if (sp.get("g")) ident.getGender = () => sp.get("g");
+    if (sp.get("p")) ident.getPrefer = () => sp.get("p");
+    if (sp.get("i")) ident.getInterests = () => sp.get("i").split(".");
   }
   $("me").textContent = ident.handle;
   $("meId").textContent = ident.id.slice(0, 8);
