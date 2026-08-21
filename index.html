@@ -1,136 +1,290 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
-<title>Roulette</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoundRobin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Sora:wght@400;500;600&display=swap">
 <style>
   :root{
-    --bg:#0f1113; --bg2:#16181c; --card:#1b1e23; --edge:#2b2f37;
-    --ink:#eef1f5; --dim:#9aa1ad; --faint:#646b78;
-    --brand:#ff5a7a; --brand2:#8b7bff; --ok:#39d98a; --warn:#ffc55c;
-    font-family:"Inter Tight",system-ui,sans-serif;
+    --bg:#05060c; --bg2:#0a0d18;
+    --ink:#eaf1ff; --muted:#94a0c0; --faint:#586084;
+    --glass:rgba(18,22,38,.55); --glass2:rgba(12,16,30,.72); --stroke:rgba(150,170,235,.16);
+    --cyan:#22e0ff; --violet:#a76bff; --pink:#ff3d84; --green:#28f0b4; --danger:#ff466b; --amber:#ffc861;
+    --grad:linear-gradient(115deg,var(--cyan),var(--violet) 55%,var(--pink));
+    --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+    font-family:"Sora",system-ui,sans-serif;
   }
-  *{box-sizing:border-box} html,body{margin:0;height:100%}
-  body{background:var(--bg);color:var(--ink);min-height:100vh;display:flex;flex-direction:column}
-  header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--edge)}
-  .logo{font-family:"Fraunces",serif;font-weight:700;font-size:22px;letter-spacing:-.01em}
-  .logo b{color:var(--brand)}
-  .me{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim)}
-  .me #me{color:var(--ink);font-weight:600}
-  .me .mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--faint)}
-  .btn{font:600 14px "Inter Tight";cursor:pointer;border:1px solid var(--edge);background:var(--bg2);color:var(--ink);border-radius:10px;padding:9px 15px;transition:.15s}
-  .btn:hover{border-color:#3a4150}
-  .btn.brand{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn.brand:hover{filter:brightness(1.06)}
-  .btn.big{padding:13px 22px;font-size:15px;border-radius:12px}
-  .btn.ghost{background:transparent}
-  .btn:disabled{opacity:.5;cursor:default}
-  input,select{font:inherit;background:var(--bg2);color:var(--ink);border:1px solid var(--edge);border-radius:9px;padding:8px 11px}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink)}
+  body{overflow:hidden;-webkit-font-smoothing:antialiased;position:fixed;inset:0}
+  button{font-family:inherit}
+  .mono{font-family:ui-monospace,"SFMono-Regular",monospace}
 
-  main{flex:1;display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px 18px;min-height:0}
-  @media(max-width:820px){main{grid-template-columns:1fr}}
-  .stage{position:relative;background:#000;border-radius:16px;overflow:hidden;min-height:360px;display:flex;align-items:center;justify-content:center}
-  #peerVid{width:100%;height:100%;object-fit:cover}
-  .stage .placeholder{color:var(--faint);text-align:center;padding:30px}
-  .stage .placeholder .big{font-family:"Fraunces",serif;font-size:26px;color:var(--dim);margin-bottom:6px}
-  #meVid{position:absolute;right:14px;bottom:14px;width:150px;height:100px;object-fit:cover;border-radius:10px;border:2px solid #000a;background:#000;transform:scaleX(-1)}
-  .peerbar{position:absolute;left:14px;top:14px;display:flex;align-items:center;gap:8px;background:#000000aa;backdrop-filter:blur(6px);padding:7px 12px;border-radius:999px}
-  .peerbar #peerName{font-weight:600}
-  .badge{font-size:11px;padding:1px 8px;border-radius:999px;font-family:ui-monospace,monospace}
-  .badge.ok{color:var(--ok);border:1px solid #2b6b4e}
-  .badge.warn{color:var(--warn);border:1px solid #6b5a2b}
-  .status{position:absolute;left:14px;bottom:14px;font-size:13px;color:var(--dim);background:#000000aa;padding:6px 12px;border-radius:999px}
-  .status.searching{color:var(--warn)} .status.connected{color:var(--ok)} .status.matched{color:var(--brand2)}
-  .modeTag{position:absolute;right:14px;top:14px;font:11px ui-monospace,monospace;color:var(--dim);background:#000000aa;padding:5px 10px;border-radius:999px}
+  /* ---------- ambient aurora ---------- */
+  .aurora{position:fixed;inset:-20% -10%;z-index:0;filter:blur(70px) saturate(1.3);pointer-events:none;opacity:.7}
+  .aurora span{position:absolute;width:60vmax;height:60vmax;border-radius:50%;mix-blend-mode:screen;opacity:.55}
+  .aurora span:nth-child(1){background:radial-gradient(circle,#1ec8ff,transparent 60%);top:-20%;left:-10%;animation:drift1 22s ease-in-out infinite}
+  .aurora span:nth-child(2){background:radial-gradient(circle,#a24bff,transparent 60%);bottom:-25%;right:-10%;animation:drift2 26s ease-in-out infinite}
+  .aurora span:nth-child(3){background:radial-gradient(circle,#ff2f80,transparent 62%);top:30%;right:20%;width:45vmax;height:45vmax;animation:drift3 30s ease-in-out infinite}
+  @keyframes drift1{50%{transform:translate(18vw,12vh) scale(1.15)}}
+  @keyframes drift2{50%{transform:translate(-16vw,-10vh) scale(1.1)}}
+  @keyframes drift3{50%{transform:translate(-12vw,14vh) scale(1.2)}}
 
-  .controls{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap}
-  .controls .btn{min-width:96px}
-  .btn.next{background:var(--brand2);border-color:var(--brand2);color:#fff}
-  .btn.connect{background:var(--ok);border-color:var(--ok);color:#04140c}
-  .btn.ban{background:transparent;border-color:#5a2b34;color:var(--brand)}
+  /* ---------- video canvas ---------- */
+  .stage-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#04050a}
+  .pip{position:fixed;top:calc(var(--safe-t) + 64px);right:calc(var(--safe-r) + 12px);
+    width:104px;height:150px;object-fit:cover;border-radius:16px;z-index:6;transform:scaleX(-1);
+    border:1px solid var(--stroke);box-shadow:0 10px 30px #000a, 0 0 0 3px #0006;background:#0a0d18;display:none}
+  body.live .pip{display:block}
+  @media(min-width:820px){.pip{width:150px;height:210px}}
 
-  aside{display:flex;flex-direction:column;gap:14px;min-height:0}
-  .card{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:14px}
-  .card h2{font:600 12px "Inter Tight";text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin:0 0 10px}
-  .startwrap{display:flex;flex-direction:column;gap:10px}
-  .lead{font-family:"Fraunces",serif;font-size:18px;line-height:1.3}
-  .sub{font-size:13px;color:var(--dim);line-height:1.5}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  #chatBox{display:flex;flex-direction:column;flex:1;min-height:0}
-  #chatLog{flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px;font-size:14px;padding:2px}
-  #chatLog .line{padding:6px 10px;border-radius:10px;background:var(--bg2);max-width:90%;align-self:flex-start;line-height:1.35}
-  #chatLog .line.you{align-self:flex-end;background:#2a2340}
-  #chatLog .line.sys{align-self:center;color:var(--faint);background:transparent;font-size:12px}
-  .composer{display:flex;gap:8px;margin-top:8px}.composer input{flex:1}
-  .friends{position:relative}
-  #friendsDrawer{max-height:0;overflow:hidden;transition:max-height .2s}
-  #friendsDrawer.open{max-height:220px;overflow:auto}
-  #friendList{list-style:none;margin:8px 0 0;padding:0;font-size:14px}
-  #friendList li{padding:6px 8px;border-bottom:1px solid var(--edge);display:flex;justify-content:space-between}
-  #friendList li.empty{color:var(--faint);border:0}
+  /* scanning FX while searching/matched (no peer yet) */
+  .searchfx{position:fixed;inset:0;z-index:3;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+    background:radial-gradient(120% 90% at 50% 40%,#0b1024ee,#05060cf2);pointer-events:none}
+  body.live .searchfx{display:flex}
+  body[data-state="connected"] .searchfx{display:none}
+  .radar{width:150px;height:150px;border-radius:50%;position:relative;border:1px solid var(--stroke)}
+  .radar::before,.radar::after{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid var(--stroke)}
+  .radar::before{inset:28px}.radar::after{inset:56px}
+  .radar i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 300deg,#22e0ff55 340deg,#22e0ff 360deg);
+    -webkit-mask:radial-gradient(circle,transparent 12px,#000 13px);mask:radial-gradient(circle,transparent 12px,#000 13px);animation:sweep 2.4s linear infinite}
+  .radar b{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 16px var(--cyan)}
+  @keyframes sweep{to{transform:rotate(360deg)}}
+  .searchfx .cap{font-family:"Space Grotesk";font-weight:600;letter-spacing:.02em;font-size:17px}
+  .searchfx .cap b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .searchfx .cap2{color:var(--muted);font-size:13px;margin-top:-10px}
+
+  /* ---------- glass primitives ---------- */
+  .glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
+    border:1px solid var(--stroke);border-radius:20px}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;font-size:12.5px;
+    background:var(--glass2);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--stroke);white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+
+  /* ---------- top bar (live) ---------- */
+  .topbar{position:fixed;z-index:7;top:calc(var(--safe-t) + 10px);left:calc(var(--safe-l) + 10px);right:calc(var(--safe-r) + 10px);
+    display:none;align-items:center;gap:8px;flex-wrap:wrap}
+  body.live .topbar{display:flex}
+  .topbar .me b{color:var(--ink);font-weight:600}
+  .topbar .me #meId{color:var(--faint);font-size:10.5px}
+  .status{font-weight:500}
+  .statuschip{color:var(--muted)}
+  body[data-state="searching"] .statuschip .status{color:var(--amber)}
+  body[data-state="matched"] .statuschip .status{color:var(--violet)}
+  body[data-state="connected"] .statuschip .status{color:var(--green)}
+  .spacer{flex:1}
+  .iconbtn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:500;
+    color:var(--ink);background:var(--glass2);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:.15s;position:relative}
+  .iconbtn:hover{border-color:rgba(150,170,235,.4)}
+  .iconbtn b{color:var(--cyan)}
+  .iconbtn.danger{color:#ffd7de;border-color:rgba(255,70,107,.4)}
+  #chatToggle.has-unread::after{content:"";position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--pink);box-shadow:0 0 10px var(--pink)}
+  #modeTag{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
+  body:not(.live) #modeTag{display:none}
+
+  /* peer label */
+  .peerlabel{position:fixed;z-index:6;left:50%;top:calc(var(--safe-t) + 58px);transform:translateX(-50%);
+    display:none;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--glass2);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  body[data-state="connected"] .peerlabel,body[data-state="matched"] .peerlabel{display:inline-flex}
+  .peerlabel #peerName{font-family:"Space Grotesk";font-weight:600}
+  .badge{font-size:10.5px;font-family:ui-monospace,monospace;padding:1px 8px;border-radius:999px}
+  .badge.ok{color:var(--green);border:1px solid rgba(40,240,180,.35)}
+  .badge.warn{color:var(--amber);border:1px solid rgba(255,200,97,.35)}
+
+  /* ---------- hero (#ph) ---------- */
+  .hero{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:24px calc(18px + var(--safe-l)) calc(24px + var(--safe-b));
+    text-align:center;background:radial-gradient(130% 100% at 50% 0%,#0a1024cc,#05060cf2)}
+  body.live .hero{display:none}
+  .herocard{width:min(440px,100%);padding:30px 24px 26px;display:flex;flex-direction:column;gap:14px;align-items:stretch;
+    box-shadow:0 30px 80px -30px #000, inset 0 1px 0 #ffffff12}
+  .brand{font-family:"Space Grotesk";font-weight:700;font-size:clamp(34px,10vw,50px);letter-spacing:-.02em;line-height:.95}
+  .brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{margin:0;font-family:ui-monospace,monospace;font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--cyan)}
+  .sub{margin:0 0 4px;color:var(--muted);font-size:14px;line-height:1.5}
+  .hero label{display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .field{display:flex;gap:8px}
+  input,select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:rgba(8,11,22,.7);border:1px solid var(--stroke);border-radius:12px;padding:12px 14px}
+  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) 20px,calc(100% - 13px) 20px;background-size:5px 5px;background-repeat:no-repeat}
+  .ghost{flex:0 0 auto;width:auto;background:transparent;border:1px solid var(--stroke);color:var(--muted);border-radius:12px;padding:0 16px;cursor:pointer;font-weight:600}
+  .ghost:hover{color:var(--ink)}
+  .poolrow{font-size:13px;color:var(--muted)}.poolrow b{color:var(--cyan);font-family:ui-monospace,monospace}
+  .cta{margin-top:6px;padding:16px;border:0;border-radius:14px;cursor:pointer;font-family:"Space Grotesk";font-weight:700;font-size:16px;letter-spacing:.02em;
+    color:#04121a;background:var(--grad);background-size:180% 180%;box-shadow:0 12px 40px -12px #22e0ff66,0 0 0 1px #ffffff22 inset;animation:shine 6s ease infinite;transition:transform .12s}
+  .cta:hover{transform:translateY(-1px)}.cta:active{transform:translateY(1px)}
+  .cta:disabled{opacity:.6;cursor:default;animation:none}
+  @keyframes shine{50%{background-position:100% 50%}}
+
+  /* ---------- bottom action dock (#controls) ---------- */
+  .dock{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 16px);
+    display:flex;gap:12px;padding:10px;border-radius:26px;background:var(--glass2);border:1px solid var(--stroke);
+    backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 20px 50px -20px #000c}
+  .dockbtn{display:flex;flex-direction:column;align-items:center;gap:4px;width:84px;padding:12px 8px;border-radius:18px;cursor:pointer;
+    border:1px solid transparent;background:rgba(255,255,255,.04);color:var(--ink);font-weight:600;font-size:12.5px;transition:.15s}
+  .dockbtn svg{width:24px;height:24px}
+  .dockbtn:hover{transform:translateY(-2px)}.dockbtn:active{transform:translateY(0)}
+  .dockbtn.next{color:#bff3ff;border-color:rgba(34,224,255,.35);box-shadow:0 0 20px -6px #22e0ff66}
+  .dockbtn.next:hover{background:rgba(34,224,255,.14)}
+  .dockbtn.connect{color:#b7ffe9;border-color:rgba(40,240,180,.4);box-shadow:0 0 20px -6px #28f0b466}
+  .dockbtn.connect:hover{background:rgba(40,240,180,.15)}
+  .dockbtn.ban{color:#ffc0cd;border-color:rgba(255,70,107,.4)}
+  .dockbtn.ban:hover{background:rgba(255,70,107,.15)}
+  @media(min-width:820px){.dockbtn{width:98px;padding:14px 10px}}
+
+  /* ---------- friends drawer ---------- */
+  .drawer{position:fixed;z-index:9;top:0;right:0;height:100%;width:min(320px,86vw);transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.9,.2,1);
+    padding:calc(var(--safe-t) + 20px) 18px 20px;background:var(--glass2);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-left:1px solid var(--stroke)}
+  .drawer.open{transform:translateX(0)}
+  .drawer h3{font-family:"Space Grotesk";font-weight:600;letter-spacing:.02em;margin:0 0 12px;font-size:16px}
+  #friendList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  #friendList li{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.03);font-size:14px}
+  #friendList li.empty{background:transparent;color:var(--faint);justify-content:center;padding:24px}
   .fid{font-family:ui-monospace,monospace;color:var(--faint);font-size:11px}
-  a{color:var(--brand2)} :focus-visible{outline:2px solid var(--brand2);outline-offset:2px}
-  footer{padding:8px 18px;color:var(--faint);font-size:12px;border-top:1px solid var(--edge)}
+
+  /* ---------- chat sheet ---------- */
+  .sheet-backdrop{position:fixed;inset:0;z-index:9;background:#000a;opacity:0;pointer-events:none;transition:opacity .25s}
+  body.chat-open .sheet-backdrop{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;z-index:10;left:0;right:0;bottom:0;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.9,.2,1);
+    max-height:min(72vh,560px);display:flex;flex-direction:column;padding:8px 14px calc(14px + var(--safe-b));
+    background:var(--glass2);backdrop-filter:blur(26px) saturate(1.2);-webkit-backdrop-filter:blur(26px) saturate(1.2);
+    border-top:1px solid var(--stroke);border-radius:24px 24px 0 0;box-shadow:0 -20px 60px -20px #000e}
+  body.chat-open .sheet{transform:translateY(0)}
+  @media(min-width:820px){.sheet{left:auto;right:20px;width:400px;border-radius:24px;bottom:20px;max-height:min(70vh,600px)}}
+  .sheet-grab{width:40px;height:4px;border-radius:99px;background:#ffffff2e;margin:4px auto 8px}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;font-family:"Space Grotesk";font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 4px 8px}
+  .sheet-close{background:none;border:0;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 6px}
+  .chatbox{display:flex;flex-direction:column;flex:1;min-height:0}
+  .chatlog{flex:1;overflow:auto;display:flex;flex-direction:column;gap:7px;padding:4px 2px}
+  .chatlog .line{max-width:82%;align-self:flex-start;padding:9px 13px;border-radius:16px 16px 16px 5px;background:rgba(255,255,255,.06);font-size:14.5px;line-height:1.35;word-break:break-word}
+  .chatlog .line.you{align-self:flex-end;border-radius:16px 16px 5px 16px;background:linear-gradient(120deg,#1b3a6e,#3a2a6e);color:#eaf1ff}
+  .chatlog .line.sys{align-self:center;background:transparent;color:var(--faint);font-size:12px}
+  .composer{display:flex;gap:8px;padding-top:8px}
+  .composer input{border-radius:14px}
+  .composer button{flex:0 0 auto;border:0;border-radius:14px;padding:0 18px;font-weight:600;color:#04121a;background:var(--grad);cursor:pointer}
+  .chatwaiting{padding:34px 10px;text-align:center;color:var(--faint);font-size:13.5px}
+  #chatBox:not([hidden]) ~ .chatwaiting{display:none}
+
+  a{color:var(--cyan)}
+  button,input,select{outline:none}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){
+    .aurora span,.radar i,.cta{animation:none}
+    .drawer,.sheet,.sheet-backdrop,.dockbtn,.cta{transition:none}
+  }
 </style>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
 
-<header>
-  <div class="logo">Round<b>Robin</b></div>
-  <div class="me">
-    <span>you: <span id="me">…</span></span>
-    <span class="mono" id="meId"></span>
-    <button class="btn ghost friends" id="friendsToggle">friends (<span id="friendCount">0</span>)</button>
+  <video id="peerVid" class="stage-video" autoplay playsinline></video>
+
+  <div class="searchfx" aria-hidden="true">
+    <div class="radar"><i></i><b></b></div>
+    <div class="cap">finding <b>someone</b> for you…</div>
+    <div class="cap2">peer-to-peer · <span id="poolHint">any bandwidth</span></div>
   </div>
-</header>
 
-<main>
-  <section>
-    <div class="stage">
-      <div class="placeholder" id="ph"><div class="big">any bandwidth, anyone, anywhere</div>a global peer-to-peer connection point. press start to meet a random stranger.</div>
-      <video id="peerVid" autoplay playsinline></video>
-      <video id="meVid" autoplay playsinline muted></video>
-      <div class="peerbar"><span id="peerName">—</span><span class="badge" id="peerBadge"></span></div>
-      <div class="modeTag" id="modeTag"></div>
-      <div class="status" id="status">…</div>
-    </div>
-    <div class="controls" id="controls" hidden>
-      <button class="btn big next" id="nextBtn">↻ next</button>
-      <button class="btn big connect" id="connectBtn">＋ connect</button>
-      <button class="btn big ban" id="banBtn">⦸ ban</button>
+  <video id="meVid" class="pip" autoplay playsinline muted></video>
+
+  <!-- top bar (live) -->
+  <header class="topbar">
+    <span class="chip me"><span class="dot"></span><b id="me">…</b> <span id="meId" class="mono"></span></span>
+    <span class="chip statuschip"><span id="status" class="status">…</span></span>
+    <span class="chip" id="modeTag"></span>
+    <span class="spacer"></span>
+    <button class="iconbtn" id="chatToggle" aria-label="chat">💬 chat</button>
+    <button class="iconbtn" id="friendsToggle" aria-label="friends">☆ <b id="friendCount">0</b></button>
+    <button class="iconbtn danger" id="stopBtn" hidden aria-label="end">✕ end</button>
+  </header>
+
+  <!-- peer label -->
+  <div class="peerlabel"><span id="peerName">—</span><span id="peerBadge" class="badge"></span></div>
+
+  <!-- friends drawer -->
+  <aside id="friendsDrawer" class="drawer">
+    <h3>friends</h3>
+    <ul id="friendList"></ul>
+  </aside>
+
+  <!-- hero -->
+  <section id="ph" class="hero">
+    <div class="glass herocard">
+      <div class="brand">Round<span>Robin</span></div>
+      <p class="tag">any bandwidth · anyone · anywhere</p>
+      <p class="sub">A serverless peer-to-peer roulette. No server watches — you meet a random stranger, end-to-end encrypted.</p>
+      <label>your handle
+        <div class="field"><input id="handleIn" maxlength="24" placeholder="pick a handle"><button class="ghost" id="saveHandle">save</button></div>
+      </label>
+      <label>connection
+        <select id="modeSel">
+          <option value="video">Video + voice</option>
+          <option value="audio">Voice only</option>
+          <option value="text">Text only</option>
+        </select>
+      </label>
+      <div class="poolrow">in the pool now · <b id="poolCount">0</b></div>
+      <button class="cta" id="startBtn">Start rolling</button>
     </div>
   </section>
 
-  <aside>
-    <div class="card startwrap">
-      <div class="lead">Meet someone random.</div>
-      <div class="sub">You get paired peer-to-peer with a stranger — video if you both have it, voice or text if not. <b>Connect</b> to keep them, <b>ban</b> to never see them again, <b>next</b> to roll again.</div>
-      <div class="row">
-        <input id="handleIn" style="flex:1" maxlength="24" placeholder="your handle">
-        <button class="btn" id="saveHandle">save</button>
-      </div>
-      <div class="row">
-        <select id="modeSel"><option value="video">Video + voice</option><option value="audio">Voice only</option><option value="text">Text only</option></select>
-        <span class="sub" style="margin:0">pool: <b id="poolCount">0</b></span>
-      </div>
-      <div class="row">
-        <button class="btn brand big" id="startBtn" style="flex:1">Start</button>
-        <button class="btn big" id="stopBtn" hidden>Stop</button>
-      </div>
+  <!-- action dock -->
+  <nav class="dock" id="controls" hidden aria-label="match controls">
+    <button class="dockbtn next" id="nextBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8z"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+      Next</button>
+    <button class="dockbtn connect" id="connectBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6.5 7-6.5"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+      Connect</button>
+    <button class="dockbtn ban" id="banBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
+      Ban</button>
+  </nav>
+
+  <!-- chat sheet -->
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <section class="sheet" id="chatSheet" aria-label="chat">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><span>chat</span><button class="sheet-close" id="chatClose" aria-label="close chat">×</button></div>
+    <div id="chatBox" hidden class="chatbox">
+      <div id="chatLog" class="chatlog"></div>
+      <div class="composer"><input id="chatIn" placeholder="message…"><button id="chatSend">send</button></div>
     </div>
+    <div class="chatwaiting">connect with someone to start chatting</div>
+  </section>
 
-    <div class="card" id="chatBox" hidden>
-      <h2>chat</h2>
-      <div id="chatLog"></div>
-      <div class="composer"><input id="chatIn" placeholder="message…"><button class="btn brand" id="chatSend">send</button></div>
-    </div>
-
-    <div class="card friends">
-      <h2>friends</h2>
-      <div id="friendsDrawer" class="open"><ul id="friendList"></ul></div>
-    </div>
-  </aside>
-</main>
-
-<footer>Serverless: signaling rides a public broker, media is direct peer-to-peer and end-to-end encrypted (SFrame). Add <code>?local</code> to test two tabs on one machine.</footer>
-
-<script type="module" src="app.js"></script>
+  <script type="module" src="app.js"></script>
+  <script>
+  /* UI-only glue — no app logic. app.js drives data; this drives presentation. */
+  (function () {
+    const body = document.body, $ = id => document.getElementById(id);
+    // hero <-> live: piggyback on the existing start/stop buttons (addEventListener
+    // coexists with app.js's .onclick — both fire).
+    $("startBtn").addEventListener("click", () => body.classList.add("live"));
+    $("stopBtn").addEventListener("click", () => body.classList.remove("live"));
+    // mirror #status's className onto body[data-state] so CSS can react to
+    // searching / matched / connected without touching app.js.
+    const applyState = () => {
+      const cls = ($("status").className.replace("status", "").trim()) || "";
+      body.dataset.state = cls;
+    };
+    new MutationObserver(applyState).observe($("status"), { attributes: true, attributeFilter: ["class"] });
+    applyState();
+    // chat sheet
+    const openChat = v => body.classList.toggle("chat-open", v);
+    $("chatToggle").addEventListener("click", () => { openChat(!body.classList.contains("chat-open")); $("chatToggle").classList.remove("has-unread"); });
+    $("chatClose").addEventListener("click", () => openChat(false));
+    $("sheetBackdrop").addEventListener("click", () => openChat(false));
+    // unread pulse when messages arrive with the sheet closed
+    new MutationObserver(() => { if (!body.classList.contains("chat-open")) $("chatToggle").classList.add("has-unread"); })
+      .observe($("chatLog"), { childList: true });
+    // auto-close the friends drawer when tapping the video
+    $("peerVid").addEventListener("click", () => { $("friendsDrawer").classList.remove("open"); openChat(false); });
+  })();
+  </script>
+</body>
+</html>
