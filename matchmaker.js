@@ -99,13 +99,15 @@ export class Matchmaker {
     } else if (m.t === "bye") {
       this.pool.delete(m.from);
     } else if (m.t === "match" && m.to === this.id.id) {
-      // someone claims us — enforce our filter too (two-sided)
-      const claimer = this.pool.get(m.from);
-      if (claimer && !this._eligible(claimer)) { this.lobby.send({ t: "busy", from: this.id.id, to: m.from }); return; }
+      // someone claims us — enforce our filter too (two-sided), even if we haven't
+      // seen their HELLO yet: fall back to the profile carried on the match message
+      const claimer = this.pool.get(m.from) ||
+        { gender: m.gender || "", prefer: m.prefer || "everyone", interests: m.interests || [], country: m.country || "" };
+      if (!this._eligible(claimer)) { this.lobby.send({ t: "busy", from: this.id.id, to: m.from }); return; }
       if (this.state === "searching" && !this.reservedWith) {
         this.reservedWith = m.from;
         this.lobby.send({ t: "accept", from: this.id.id, to: m.from, room: m.room });
-        this._enterRoom(m.room, m.from, this.pool.get(m.from));
+        this._enterRoom(m.room, m.from, this.pool.get(m.from) || claimer);
       } else {
         this.lobby.send({ t: "busy", from: this.id.id, to: m.from });
       }
@@ -133,7 +135,10 @@ export class Matchmaker {
     const target = targets[Math.floor(Math.random() * targets.length)].id;
     const room = "r" + Math.random().toString(36).slice(2, 10);
     this.reservedWith = target;
-    this.lobby.send({ t: "match", from: this.id.id, to: target, room });
+    const p = this.id.profile ? this.id.profile() : {};
+    this.lobby.send({ t: "match", from: this.id.id, to: target, room,
+                      gender: p.gender || "", prefer: p.prefer || "everyone",
+                      interests: p.interests || [], country: p.country || "" });
     // release the claim if not accepted shortly
     setTimeout(() => { if (this.state === "searching" && this.reservedWith === target) this.reservedWith = null; }, 2500);
   }
