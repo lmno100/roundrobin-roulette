@@ -58,6 +58,18 @@
   .searchfx .cap{font-family:"Space Grotesk";font-weight:600;letter-spacing:.02em;font-size:17px}
   .searchfx .cap b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .searchfx .cap2{color:var(--muted);font-size:13px;margin-top:-10px}
+  .searchfx button{pointer-events:auto}
+  .searchnote{min-height:18px;color:var(--amber);font-size:13.5px;font-weight:500;max-width:82vw;text-align:center}
+  .bigstop{margin-top:10px;display:inline-flex;align-items:center;gap:9px;padding:14px 32px;border-radius:16px;cursor:pointer;
+    font-family:"Space Grotesk";font-weight:700;font-size:15px;letter-spacing:.02em;color:#fff;
+    background:rgba(255,70,107,.16);border:1px solid rgba(255,70,107,.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 12px 34px -10px #ff466b66;transition:.15s}
+  .bigstop:hover{background:rgba(255,70,107,.26);transform:translateY(-1px)}
+  .bigstop svg{width:19px;height:19px}
+  .searchprompt{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:2px;color:var(--muted);font-size:13.5px;max-width:84vw;text-align:center}
+  .searchprompt .row{display:flex;gap:10px}
+  .searchprompt button{padding:10px 18px;border-radius:12px;cursor:pointer;font-weight:600;font-size:13.5px;background:var(--glass2);border:1px solid var(--stroke);color:var(--ink)}
+  .searchprompt #keepLooking{color:#bff3ff;border-color:rgba(34,224,255,.45)}
 
   /* ---------- glass primitives ---------- */
   .glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
@@ -122,19 +134,21 @@
 
   /* ---------- bottom action dock (#controls) ---------- */
   .dock{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 16px);
-    display:flex;gap:12px;padding:10px;border-radius:26px;background:var(--glass2);border:1px solid var(--stroke);
+    display:flex;gap:8px;padding:9px;border-radius:26px;background:var(--glass2);border:1px solid var(--stroke);max-width:calc(100vw - 20px);
     backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 20px 50px -20px #000c}
-  .dockbtn{display:flex;flex-direction:column;align-items:center;gap:4px;width:84px;padding:12px 8px;border-radius:18px;cursor:pointer;
-    border:1px solid transparent;background:rgba(255,255,255,.04);color:var(--ink);font-weight:600;font-size:12.5px;transition:.15s}
-  .dockbtn svg{width:24px;height:24px}
+  .dockbtn{display:flex;flex-direction:column;align-items:center;gap:4px;width:74px;padding:12px 6px;border-radius:18px;cursor:pointer;
+    border:1px solid transparent;background:rgba(255,255,255,.04);color:var(--ink);font-weight:600;font-size:12px;transition:.15s}
+  .dockbtn svg{width:23px;height:23px}
   .dockbtn:hover{transform:translateY(-2px)}.dockbtn:active{transform:translateY(0)}
-  .dockbtn.next{color:#bff3ff;border-color:rgba(34,224,255,.35);box-shadow:0 0 20px -6px #22e0ff66}
-  .dockbtn.next:hover{background:rgba(34,224,255,.14)}
-  .dockbtn.connect{color:#b7ffe9;border-color:rgba(40,240,180,.4);box-shadow:0 0 20px -6px #28f0b466}
+  .dockbtn.next{color:#04121a;background:var(--grad);border-color:transparent;box-shadow:0 8px 24px -8px #22e0ff99}
+  .dockbtn.next:hover{filter:brightness(1.07)}
+  .dockbtn.stop{color:#ffd7de;border-color:rgba(255,70,107,.5);box-shadow:0 0 20px -8px #ff466b66}
+  .dockbtn.stop:hover{background:rgba(255,70,107,.16)}
+  .dockbtn.connect{color:#b7ffe9;border-color:rgba(40,240,180,.4)}
   .dockbtn.connect:hover{background:rgba(40,240,180,.15)}
   .dockbtn.ban{color:#ffc0cd;border-color:rgba(255,70,107,.4)}
   .dockbtn.ban:hover{background:rgba(255,70,107,.15)}
-  @media(min-width:820px){.dockbtn{width:98px;padding:14px 10px}}
+  @media(min-width:820px){.dock{gap:12px;padding:10px}.dockbtn{width:92px;padding:14px 10px;font-size:12.5px}.dockbtn svg{width:24px;height:24px}}
 
   /* ---------- friends drawer ---------- */
   .drawer{position:fixed;z-index:9;top:0;right:0;height:100%;width:min(320px,86vw);transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.9,.2,1);
@@ -183,10 +197,18 @@
 
   <video id="peerVid" class="stage-video" autoplay playsinline></video>
 
-  <div class="searchfx" aria-hidden="true">
+  <div class="searchfx">
     <div class="radar"><i></i><b></b></div>
     <div class="cap">finding <b>someone</b> for you…</div>
     <div class="cap2">peer-to-peer · <span id="poolHint">any bandwidth</span></div>
+    <div class="searchnote" id="searchNote"></div>
+    <div class="searchprompt" id="searchPrompt" hidden>
+      <span>Still looking. Keep waiting, or take a break?</span>
+      <div class="row"><button id="keepLooking">Keep looking</button><button id="promptStop">Stop</button></div>
+    </div>
+    <button class="bigstop" id="searchStop" aria-label="stop searching">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      Stop</button>
   </div>
 
   <video id="meVid" class="pip" autoplay playsinline muted></video>
@@ -237,6 +259,9 @@
     <button class="dockbtn next" id="nextBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8z"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
       Next</button>
+    <button class="dockbtn stop" id="dockStop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="12"/><path d="M7.6 6.6a7 7 0 1 0 8.8 0"/></svg>
+      Stop</button>
     <button class="dockbtn connect" id="connectBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6.5 7-6.5"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
       Connect</button>
@@ -266,11 +291,42 @@
     // coexists with app.js's .onclick — both fire).
     $("startBtn").addEventListener("click", () => body.classList.add("live"));
     $("stopBtn").addEventListener("click", () => body.classList.remove("live"));
+
+    // ---- Stop from anywhere routes through the real #stopBtn (app.js binds stop()
+    // to it: sets running=false, tears down, re-enables Start; the listener above
+    // removes .live so the hero reappears → clean return to READY).
+    const stopEverything = () => $("stopBtn").click();
+    $("searchStop").addEventListener("click", stopEverything);
+    $("promptStop").addEventListener("click", stopEverything);
+    $("dockStop").addEventListener("click", stopEverything);
+
+    // ---- searching UX: calm empty-pool messaging so it never feels frozen
+    let t8 = null, t90 = null;
+    const clearSearchTimers = () => { clearTimeout(t8); clearTimeout(t90); t8 = t90 = null; };
+    function enterSearching() {
+      clearSearchTimers();
+      $("searchNote").textContent = "";
+      $("searchPrompt").hidden = true;
+      t8 = setTimeout(() => {
+        const empty = (($("poolCount").textContent || "0").trim() === "0");
+        $("searchNote").textContent = empty
+          ? "Looks quiet right now — still searching…"
+          : "Someone's around — connecting…";
+      }, 8000);
+      t90 = setTimeout(() => { $("searchPrompt").hidden = false; }, 90000);
+    }
+    $("keepLooking").addEventListener("click", () => { $("searchPrompt").hidden = true; enterSearching(); });
+    $("stopBtn").addEventListener("click", () => { clearSearchTimers(); $("searchNote").textContent = ""; $("searchPrompt").hidden = true; });
+
     // mirror #status's className onto body[data-state] so CSS can react to
-    // searching / matched / connected without touching app.js.
+    // searching / matched / connected; drive the searching timers off transitions.
+    let prevState = "";
     const applyState = () => {
       const cls = ($("status").className.replace("status", "").trim()) || "";
       body.dataset.state = cls;
+      if (cls === "searching" && prevState !== "searching") enterSearching();
+      if (cls !== "searching") { clearSearchTimers(); $("searchPrompt").hidden = true; }
+      prevState = cls;
     };
     new MutationObserver(applyState).observe($("status"), { attributes: true, attributeFilter: ["class"] });
     applyState();
