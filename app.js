@@ -33,14 +33,21 @@ async function boot() {
   setStatus(useLocal ? "ready (local test mode)" : "ready", "");
 }
 
+function gumTimeout(constraints, ms) {
+  // never let a hung/slow permission prompt block the whole flow — race a timeout
+  return Promise.race([
+    navigator.mediaDevices.getUserMedia(constraints),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("media-timeout")), ms)),
+  ]);
+}
 async function acquireMedia() {
   const tries = mediaMode === "text" ? [] :
     mediaMode === "audio" ? [{ audio: true }] :
     [{ video: true, audio: true }, { audio: true }];
   for (const c of tries) {
-    try { return await navigator.mediaDevices.getUserMedia(c); } catch {}
+    try { return await gumTimeout(c, 12000); } catch {}
   }
-  return new MediaStream();  // text/data-only floor
+  return new MediaStream();  // text/data-only floor — any-bandwidth never stalls
 }
 
 async function start() {

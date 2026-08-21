@@ -40,7 +40,7 @@
   .pip{position:fixed;top:calc(var(--safe-t) + 64px);right:calc(var(--safe-r) + 12px);
     width:104px;height:150px;object-fit:cover;border-radius:16px;z-index:6;transform:scaleX(-1);
     border:1px solid var(--stroke);box-shadow:0 10px 30px #000a, 0 0 0 3px #0006;background:#0a0d18;display:none}
-  body.live .pip{display:block}
+  body.live.has-cam .pip{display:block}   /* only when we actually have a local video track */
   @media(min-width:820px){.pip{width:150px;height:210px}}
 
   /* scanning FX while searching/matched (no peer yet) */
@@ -99,8 +99,8 @@
   #modeTag{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
   body:not(.live) #modeTag{display:none}
 
-  /* peer label */
-  .peerlabel{position:fixed;z-index:6;left:50%;top:calc(var(--safe-t) + 58px);transform:translateX(-50%);
+  /* peer label — bottom-center, above the dock, so it never collides with the top bar */
+  .peerlabel{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 108px);transform:translateX(-50%);max-width:calc(100vw - 32px);
     display:none;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--glass2);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
   body[data-state="connected"] .peerlabel,body[data-state="matched"] .peerlabel{display:inline-flex}
   .peerlabel #peerName{font-family:"Space Grotesk";font-weight:600}
@@ -163,11 +163,12 @@
   /* ---------- chat sheet ---------- */
   .sheet-backdrop{position:fixed;inset:0;z-index:9;background:#000a;opacity:0;pointer-events:none;transition:opacity .25s}
   body.chat-open .sheet-backdrop{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;z-index:10;left:0;right:0;bottom:0;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.9,.2,1);
+  .sheet{position:fixed;z-index:10;left:0;right:0;bottom:0;transform:translateY(105%);visibility:hidden;opacity:0;
+    transition:transform .3s cubic-bezier(.2,.9,.2,1),opacity .25s,visibility .3s;
     max-height:min(72vh,560px);display:flex;flex-direction:column;padding:8px 14px calc(14px + var(--safe-b));
     background:var(--glass2);backdrop-filter:blur(26px) saturate(1.2);-webkit-backdrop-filter:blur(26px) saturate(1.2);
     border-top:1px solid var(--stroke);border-radius:24px 24px 0 0;box-shadow:0 -20px 60px -20px #000e}
-  body.chat-open .sheet{transform:translateY(0)}
+  body.chat-open .sheet{transform:translateY(0);visibility:visible;opacity:1}
   @media(min-width:820px){.sheet{left:auto;right:20px;width:400px;border-radius:24px;bottom:20px;max-height:min(70vh,600px)}}
   .sheet-grab{width:40px;height:4px;border-radius:99px;background:#ffffff2e;margin:4px auto 8px}
   .sheet-head{display:flex;align-items:center;justify-content:space-between;font-family:"Space Grotesk";font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 4px 8px}
@@ -330,6 +331,11 @@
     };
     new MutationObserver(applyState).observe($("status"), { attributes: true, attributeFilter: ["class"] });
     applyState();
+    // PiP only when we truly have a local video track (app.js writes the track
+    // kinds into #modeTag) — avoids an empty dark box top-right in voice/text mode.
+    const applyCam = () => body.classList.toggle("has-cam", /video/.test($("modeTag").textContent || ""));
+    new MutationObserver(applyCam).observe($("modeTag"), { childList: true, characterData: true, subtree: true });
+    applyCam();
     // chat sheet
     const openChat = v => body.classList.toggle("chat-open", v);
     $("chatToggle").addEventListener("click", () => { openChat(!body.classList.contains("chat-open")); $("chatToggle").classList.remove("has-unread"); });
